@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deportes Hoy</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(135deg, #001f3f, #003366, #004080);
+      color: white;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 2.3em;
+      margin: 30px 0;
+      letter-spacing: 1px;
+      text-shadow: 2px 2px 5px #000;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 25px;
+      padding: 20px;
+    }
+    .section {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 20px;
+      width: 320px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    }
+    h2 {
+      font-size: 1.4em;
+      margin-bottom: 10px;
+      color: #00d4ff;
+      text-shadow: 1px 1px 3px #000;
+    }
+    .match {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      margin: 10px 0;
+      padding: 10px;
+      line-height: 1.6;
+    }
+    .loading {
+      font-style: italic;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏟️ Resultados y Partidos Deportivos</h1>
+  <div class="container">
+    <div class="section">
+      <h2>⚽ Fútbol</h2>
+      <div id="futbol" class="matches loading">Cargando...</div>
+    </div>
+    <div class="section">
+      <h2>🏀 NBA</h2>
+      <div id="nba" class="matches loading">Cargando...</div>
+    </div>
+    <div class="section">
+      <h2>🏎️ F1</h2>
+      <div id="f1" class="matches loading">Cargando...</div>
+    </div>
+    <div class="section">
+      <h2>⚾ MLB</h2>
+      <div id="mlb" class="matches loading">Cargando...</div>
+    </div>
+  </div>
+
+  <script>
+    const ligas = {
+      futbol: "soccer",
+      nba: "basketball/nba",
+      f1: "racing/f1",
+      mlb: "baseball/mlb"
+    };
+
+    async function cargarDeporte(id, liga) {
+      const contenedor = document.getElementById(id);
+      try {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/${liga}/scoreboard`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.events || data.events.length === 0) {
+          contenedor.innerHTML = "📅 No hay eventos próximos disponibles.";
+          contenedor.classList.remove("loading");
+          return;
+        }
+
+        const hoy = new Date();
+        const pasadoManiana = new Date();
+        pasadoManiana.setDate(hoy.getDate() + 2);
+
+        const eventos = data.events.map(e => ({
+          ...e,
+          fechaObj: new Date(e.date)
+        }));
+
+        let proximos = eventos.filter(
+          e => e.fechaObj >= hoy && e.fechaObj <= pasadoManiana
+        );
+
+        if (proximos.length === 0) {
+          const futuros = eventos
+            .filter(e => e.fechaObj > hoy)
+            .sort((a, b) => a.fechaObj - b.fechaObj);
+          proximos = futuros.length > 0 ? [futuros[0]] : [eventos[0]];
+        }
+
+        contenedor.classList.remove("loading");
+        contenedor.innerHTML = "";
+
+        proximos.forEach(match => {
+          const comp = match.competitions?.[0];
+          if (!comp) return;
+
+          const local = comp.competitors?.[0];
+          const visitante = comp.competitors?.[1];
+          const fechaObj = new Date(match.date);
+          const fecha = fechaObj.toLocaleDateString("es-AR", {
+            weekday: "long",
+            month: "long",
+            day: "numeric"
+          });
+          const hora = fechaObj.toLocaleTimeString("es-AR", {
+            hour: "2-digit",
+            minute: "2-digit"
+          });
+          const estado = match.status?.type?.description || "Por comenzar";
+
+          const marcadorLocal = local?.score || "-";
+          const marcadorVisitante = visitante?.score || "-";
+
+          const div = document.createElement("div");
+          div.className = "match";
+          div.innerHTML = `
+            📅 ${fecha} — 🕒 ${hora}<br>
+            ${local?.team?.displayName || "—"} ${marcadorLocal}
+            vs
+            ${visitante?.team?.displayName || "—"} ${marcadorVisitante}<br>
+            📋 Estado: ${estado}
+          `;
+          contenedor.appendChild(div);
+        });
+      } catch (error) {
+        contenedor.innerHTML = "❌ Error al cargar los datos.";
+        console.error("Error cargando", liga, error);
+      }
+    }
+
+    Object.entries(ligas).forEach(([id, liga]) => cargarDeporte(id, liga));
+  </script>
+</body>
+</html>
